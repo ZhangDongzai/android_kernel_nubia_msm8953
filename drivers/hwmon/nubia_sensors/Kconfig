@@ -1,0 +1,64 @@
+################################################# SENROS START
+menuconfig NUBIA_SENSORS
+	tristate "NUBIA SENSORS ON"
+	default n
+	help
+		nubia senor
+if NUBIA_SENSORS
+config FEATURE_NUBIA_SENSORS_LOG_ON
+	tristate "NUBIA SENSORS LOG ON"
+	depends on NUBIA_SENSORS
+	default n
+	help
+		If you want to enable the sensor log,
+		then choose this config
+################################################# PROX START
+config NUBIA_SENSORS_PROX_PA224
+	tristate "support litehole prox sensor driver"
+	depends on NUBIA_SENSORS
+	default n
+	help
+		nubia prox device
+
+################################################# FINGER_PRINTER START
+menuconfig NUBIA_SENSORS_FP
+	tristate "NUBIA FP DEVICE"
+	depends on NUBIA_SENSORS
+	default n
+
+if NUBIA_SENSORS_FP
+
+config NUBIA_FP_AUTODETECT
+	tristate "nubia fingerprint autodetect"
+	depends on NUBIA_SENSORS_FP
+	default n
+	help
+	  If you say yes here you, will enable fingerprint
+	  autodetect function.
+
+################################################# FINGER_PRINTER_GF3208 START
+source drivers/hwmon/nubia_sensors/gf3208/Kconfig
+choice
+        prompt "choose the GF3208 device style"
+        depends on NUBIA_SENSORS_FP_GF3208
+		default NUBIA_SENSORS_FP_GF3208_PLATFORM
+		help
+		  GF3208 need to select the work style
+
+config NUBIA_SENSORS_FP_GF3208_SPI
+        bool "GF3208 work as SPI device"
+        help
+          If you want GF3208 work as SPI device, select it.
+
+config NUBIA_SENSORS_FP_GF3208_PLATFORM
+        bool "GF3208 work as PLATFORM device"
+        help
+          If you want GF3208 work as PLATFORM device, select it.
+
+endchoice
+################################################# FINGER_PRINTER_GF3208 END
+
+endif
+################################################# FINGER_PRINTER END
+
+endif
