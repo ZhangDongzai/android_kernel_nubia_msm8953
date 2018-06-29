@@ -260,7 +260,7 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 			sensor_name);
 		return -EINVAL;
 	}
-
+	CDBG("slave_info->sensor_id_reg_addr=0X %x slave_info->sensor_id=0X %x\n",slave_info->sensor_id_reg_addr,slave_info->sensor_id);
 	rc = sensor_i2c_client->i2c_func_tbl->i2c_read(
 		sensor_i2c_client, slave_info->sensor_id_reg_addr,
 		&chipid, MSM_CAMERA_I2C_WORD_DATA);
@@ -269,7 +269,7 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
-	pr_debug("%s: read id: 0x%x expected id 0x%x:\n",
+	pr_err("%s: read id: 0x%x expected id 0x%x:\n",
 			__func__, chipid, slave_info->sensor_id);
 	if (msm_sensor_id_by_mask(s_ctrl, chipid) != slave_info->sensor_id) {
 		pr_err("%s chip id %x does not match %x\n",
@@ -325,6 +325,76 @@ static int msm_sensor_get_af_status(struct msm_sensor_ctrl_t *s_ctrl,
 	return 0;
 }
 
+//ZTEMT:zhouruoyu add for sof freeze debug ----- start
+struct frame_count_setting_t {
+	char sensor_name[32];
+	uint16_t reg_addr;
+	uint16_t data_type;
+};
+
+static struct frame_count_setting_t frame_count_setting[] =
+{
+	{"imx258_main", 0x0005, MSM_CAMERA_I2C_BYTE_DATA},
+	{"imx258_aux", 0x0005, MSM_CAMERA_I2C_BYTE_DATA},
+};
+
+static int msm_sensor_read_framecount(struct msm_sensor_ctrl_t *s_ctrl)
+{
+	int rc = 0;
+	int i = 0;
+	uint32_t size = 0;
+	struct msm_camera_i2c_client *sensor_i2c_client;
+	const char *sensor_name;
+	uint16_t frame_count_addr , data_type = 0;
+	uint8_t value = 0;
+	uint16_t value_16 = 0;
+
+	if (!s_ctrl) {
+		pr_err("%s:%d failed: %pK\n",
+			__func__, __LINE__, s_ctrl);
+		return -EINVAL;
+	}
+	sensor_i2c_client = s_ctrl->sensor_i2c_client;
+	sensor_name = s_ctrl->sensordata->sensor_name;
+
+	if (!sensor_i2c_client || !sensor_name) {
+		pr_err("%s:%d failed: %pK %pK\n",
+			__func__, __LINE__, sensor_i2c_client,
+			sensor_name);
+		return -EINVAL;
+	}
+
+	size = sizeof(frame_count_setting)/sizeof(struct frame_count_setting_t );
+	for ( i =  0 ; i < size ; i++) {
+		if(strcmp(frame_count_setting[i].sensor_name, sensor_name) ==0) {
+			frame_count_addr = frame_count_setting[i].reg_addr;
+			data_type = frame_count_setting[i].data_type;
+			break;
+		}
+	}
+
+	if(frame_count_addr == 0) {
+		pr_err("%s:%s has no frame count info, return", __func__, sensor_name);
+		return 0;
+	}
+
+	for (i = 0 ; i < 3; i++) {
+		rc = sensor_i2c_client->i2c_func_tbl->i2c_read(
+			sensor_i2c_client, frame_count_addr,
+			&value_16, data_type);
+		if (rc < 0) {
+			pr_err("%s: %s: read id failed\n", __func__, sensor_name);
+		} else {
+			value = (uint8_t)value_16;
+			pr_err("%s: %s frame count addr = 0x%x value =0x%x \n", __func__, sensor_name, frame_count_addr, value);
+		}
+		msleep(100);
+	}
+
+	return 0;
+}
+//ZTEMT:zhouruoyu add for sof freeze debug ----- end
+
 static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int cmd, void *arg)
 {
@@ -351,8 +421,10 @@ static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 		msm_sensor_stop_stream(s_ctrl);
 		return 0;
 	case MSM_SD_NOTIFY_FREEZE:
+		msm_sensor_read_framecount(s_ctrl);//ZTEMT:zhouruoyu add for sof freeze debug
 		return 0;
 	case MSM_SD_UNNOTIFY_FREEZE:
+		msm_sensor_read_framecount(s_ctrl);//ZTEMT:zhouruoyu add for sof freeze debug
 		return 0;
 	default:
 		return -ENOIOCTLCMD;
@@ -388,7 +460,30 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 	mutex_lock(s_ctrl->msm_sensor_mutex);
 	CDBG("%s:%d %s cfgtype = %d\n", __func__, __LINE__,
 		s_ctrl->sensordata->sensor_name, cdata->cfgtype);
+
 	switch (cdata->cfgtype) {
+        //ZTEMT: guxiaodong add for sensor temp ----start
+	case CFG_READ_SENSOR_TEMP:
+        {
+            uint16_t local_data = 0;
+            if(!strcmp("imx258_main",s_ctrl->sensordata->sensor_name))//huaweifeng modify
+            {
+                CDBG("[gxd] start to write 0x0138");
+                rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(
+                                                                                  s_ctrl->sensor_i2c_client,
+                                                                                  0x0138,0x01,MSM_CAMERA_I2C_BYTE_DATA);
+                CDBG("[gxd] start to read 0x013a");
+                rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(
+                                                                                  s_ctrl->sensor_i2c_client,
+                                                                                  0x013a,
+                                                                                  &local_data, MSM_CAMERA_I2C_BYTE_DATA);
+                cdata->sensor_temp = local_data;
+                CDBG("[gxd] local_data = %d\n",local_data);
+            }
+            break;
+        }
+        //ZTEMT: guxiaodong add for sensor temp ----end
+
 	case CFG_GET_SENSOR_INFO:
 		memcpy(cdata->cfg.sensor_info.sensor_name,
 			s_ctrl->sensordata->sensor_name,

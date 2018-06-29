@@ -6,6 +6,9 @@
 
 #include <linux/types.h>
 #include <linux/i2c.h>
+//ZTEMT: li.bin223 20150421 add for avoid kernel crash ----start
+#define	MSM_ACTUATOT_MAX_NAME (32)
+//ZTEMT: li.bin223 20150421 add for avoid kernel crash ----end
 
 #define I2C_SEQ_REG_SETTING_MAX   5
 
@@ -60,6 +63,17 @@ enum msm_sensor_resolution_t {
 	MSM_SENSOR_RES_5,
 	MSM_SENSOR_RES_6,
 	MSM_SENSOR_RES_7,
+    // ZTEMT: fuyipeng add the res -----start
+	MSM_SENSOR_RES_8,
+	MSM_SENSOR_RES_9,
+	MSM_SENSOR_RES_10,
+	MSM_SENSOR_RES_11,
+	MSM_SENSOR_RES_12,
+	MSM_SENSOR_RES_13,
+	MSM_SENSOR_RES_14,
+	MSM_SENSOR_RES_15,
+	MSM_SENSOR_RES_16,
+    // ZTEMT: fuyipeng add the res -----end
 	MSM_SENSOR_INVALID_RES,
 };
 
@@ -83,8 +97,10 @@ enum sensor_sub_module_t {
 	SUB_MODULE_CSIPHY_3D,
 	SUB_MODULE_OIS,
 	SUB_MODULE_EXT,
+#ifndef CONFIG_MACH_NUBIA_NX549J
 	SUB_MODULE_IR_LED,
 	SUB_MODULE_IR_CUT,
+#endif
 	SUB_MODULE_MAX,
 };
 
@@ -234,6 +250,8 @@ struct sensorb_cfg_data {
 		void                         *setting;
 		struct msm_sensor_i2c_sync_params sensor_i2c_sync_params;
 	} cfg;
+        uint16_t sensor_temp;//ztemt: guxiaodong add for tmp
+        uint8_t sen_temp_sign;//ztemt: guxiaodong add for tmp
 };
 
 struct csid_cfg_data {
@@ -260,6 +278,7 @@ enum eeprom_cfg_type_t {
 	CFG_EEPROM_WRITE_DATA,
 	CFG_EEPROM_GET_MM_INFO,
 	CFG_EEPROM_INIT,
+	CFG_EEPROM_DO_CALIBRATION,//ZTEMT:zhouruoyu add for factory altek 3D calibration
 };
 
 struct eeprom_get_t {
@@ -342,6 +361,7 @@ enum msm_sensor_cfg_type_t {
 	CFG_WRITE_I2C_ARRAY_ASYNC,
 	CFG_WRITE_I2C_ARRAY_SYNC,
 	CFG_WRITE_I2C_ARRAY_SYNC_BLOCK,
+	CFG_READ_SENSOR_TEMP,//ZTEMT: guxiaodong add for read sensor temp
 };
 
 enum msm_actuator_cfg_type_t {
@@ -353,6 +373,9 @@ enum msm_actuator_cfg_type_t {
 	CFG_ACTUATOR_POWERDOWN,
 	CFG_ACTUATOR_POWERUP,
 	CFG_ACTUATOR_INIT,
+    // ZTEMT: fuyipeng add for manual AF -----start
+    CFG_SET_ACTUATOR_NAME,
+    // ZTEMT: fuyipeng add for manual AF -----end
 };
 
 struct msm_ois_opcode {
@@ -496,6 +519,8 @@ struct msm_actuator_set_position_t {
 	uint32_t hw_params;
 	uint16_t pos[MAX_NUMBER_OF_STEPS];
 	uint16_t delay[MAX_NUMBER_OF_STEPS];
+     int16_t dac_output; //jixd 20160601 add for reset optimize
+     uint16_t is_altek_call; //ZTEMT: add by pangfl for AF matching
 };
 
 struct msm_actuator_cfg_data {
@@ -507,6 +532,9 @@ struct msm_actuator_cfg_data {
 		struct msm_actuator_get_info_t get_info;
 		struct msm_actuator_set_position_t setpos;
 		enum af_camera_name cam_name;
+        // ZTEMT: fuyipeng add for manual AF -----start
+        char act_name[MSM_ACTUATOT_MAX_NAME];
+        // ZTEMT: fuyipeng add for manual AF -----end
 	} cfg;
 };
 
@@ -598,11 +626,13 @@ struct sensor_init_cfg_data {
 #define VIDIOC_MSM_OIS_CFG_DOWNLOAD \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 14, struct msm_ois_cfg_download_data)
 
+#ifndef CONFIG_MACH_NUBIA_NX549J
 #define VIDIOC_MSM_IR_LED_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 15, struct msm_ir_led_cfg_data_t)
 
 #define VIDIOC_MSM_IR_CUT_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 15, struct msm_ir_cut_cfg_data_t)
+#endif
 
 #endif
 
