@@ -48,7 +48,7 @@
 #define MSM_EEPROM_MEMORY_MAP_MAX_SIZE  80
 #define MSM_EEPROM_MAX_MEM_MAP_CNT      8
 
-#if !defined(CONFIG_MACH_NUBIA_NX551J) && !defined(CONFIG_MACH_NUBIA_NX549J)
+#ifndef CONFIG_MACH_NUBIA_NX549J
 #define MSM_SENSOR_BYPASS_VIDEO_NODE    1
 #endif
 
@@ -324,7 +324,7 @@ struct msm_camera_sensor_slave_info {
 	unsigned char  is_init_params_valid;
 	struct msm_sensor_init_params sensor_init_params;
 	enum msm_sensor_output_format_t output_format;
-#if !defined(CONFIG_MACH_NUBIA_NX551J) && !defined(CONFIG_MACH_NUBIA_NX549J)
+#ifndef CONFIG_MACH_NUBIA_NX549J
 	uint8_t bypass_video_node_creation;
 #endif
 };

@@ -89,7 +89,7 @@ struct msm_sensor_ctrl_t {
 	uint32_t set_mclk_23880000;
 	uint8_t is_csid_tg_mode;
 	uint32_t is_secure;
-#if !defined(CONFIG_MACH_NUBIA_NX551J) && !defined(CONFIG_MACH_NUBIA_NX549J)
+#ifndef CONFIG_MACH_NUBIA_NX549J
 	uint8_t bypass_video_node_creation;
 #endif
 };
