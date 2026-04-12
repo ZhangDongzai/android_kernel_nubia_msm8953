@@ -55,9 +55,9 @@ struct battery_id_map {
 bool b_powerOn_init = false;
 
 static const struct battery_id_map batt_id_map[] = {
-	{ATL_BTAAERY_ID_MAX,            ATL_BTAAERY_ID_MIN,            "ztemt_atl_2850mah"},
-	{SUMSUNG_BTAAERY_ID_MAX,        SUMSUNG_BTAAERY_ID_MIN,   "ztemt_sumsung_3000mah"},
-    {LG_BTAAERY_ID_MAX,             LG_BTAAERY_ID_MIN,              "ztemt_lg_3000mah"}
+	{ATL_BTAAERY_ID_MAX,		ATL_BTAAERY_ID_MIN,	"ztemt_atl_2850mah"},
+	{SUMSUNG_BTAAERY_ID_MAX,	SUMSUNG_BTAAERY_ID_MIN,	"ztemt_sumsung_3000mah"},
+	{LG_BTAAERY_ID_MAX,		LG_BTAAERY_ID_MIN,	"ztemt_lg_3000mah"}
 };
 static int debug_mask_fg = 1;
 module_param_named(debug_mask_fg, debug_mask_fg, int, S_IRUSR | S_IWUSR);
@@ -69,7 +69,6 @@ module_param_named(debug_mask_fg, debug_mask_fg, int, S_IRUSR | S_IWUSR);
 //#undef KERN_INFO
 //#define KERN_INFO KERN_ERR
 #endif
-
 
 
 /* Register offsets */
@@ -6474,8 +6473,6 @@ wait:
 
 #if defined(CONFIG_ZTEMT_FUEL_GAUGE)
 	fg_batt_type = "ztemt_lg_3000mah";
-#elif defined(CONFIG_NUBIA_WEIPU_CHARGER)
-	fg_batt_type = "ascent_3450mah";
 #endif
 
 	profile_node = of_batterydata_get_best_profile(batt_node, "bms",

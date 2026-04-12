@@ -14,7 +14,6 @@ config POWER_SUPPLY_DEBUG
 	  Say Y here to enable debugging messages for power supply class
 	  and drivers.
 
-
 config PDA_POWER
 	tristate "Generic PDA/phone power driver"
 	depends on !S390
@@ -645,30 +644,14 @@ config ZTEMT_CHARGER
 	default n
 	help
 	  ZTEMT For MSMxxxx Platfrom Charge
+
 config ZTEMT_FUEL_GAUGE
 	bool "ZTEMT For MSMxxxx Platfrom Fuel Gauge"
 	default n
 	help
 	  ZTEMT For MSMxxxx Platfrom fuel gauge
-config NUBIA_WEIPU_CHARGER
-	bool "ZTEMT For weipu  Charge"
-	default n
-	help
-	  ZTEMT For weipu  Charge
+
 endmenu
-################ztemt battery config
-
-config BATTERY_BQ27520
-	tristate "BQ27520 battery driver"
-	depends on I2C || I2C=n
-	help
-	  Say Y here to enable support for batteries with BQ27520 (I2C/HDQ) chips.
-
-config EXTERNAL_FUEL_GAUGE
-	tristate "external fuel gauge support driver"
-	depends on BATTERY_BQ27520 || I2C
-	help
-	  Say Y here to enable support for batteries with BQ27520 (I2C/HDQ) chips.
 
 ################ztemt hw_version config start################
 config ZTEMT_HW_VERSION

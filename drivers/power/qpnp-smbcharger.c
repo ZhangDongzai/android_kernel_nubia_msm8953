@@ -44,10 +44,6 @@
 #include <linux/wakelock.h>
 #endif
 
-#ifdef CONFIG_NUBIA_WEIPU_CHARGER
-#include "nubia_weipu_charger.h"
-#endif
-
 /* Mask/Bit helpers */
 #define _SMB_MASK(BITS, POS) \
 	((unsigned char)(((1 << (BITS)) - 1) << (POS)))
@@ -252,10 +248,6 @@ struct smbchg_chip {
 	struct power_supply		dc_psy;
 	struct power_supply		*bms_psy;
 	struct power_supply		*typec_psy;
-#ifdef CONFIG_EXTERNAL_FUEL_GAUGE
-	struct power_supply		*fg_psy;
-	const char				*fg_psy_name;
-#endif
 	int				dc_psy_type;
 	const char			*bms_psy_name;
 	const char			*battery_psy_name;
@@ -297,11 +289,6 @@ struct smbchg_chip {
 	struct votable			*hw_aicl_rerun_enable_indirect_votable;
 	struct votable			*aicl_deglitch_short_votable;
 	struct votable			*hvdcp_enable_votable;
-
-#ifdef CONFIG_NUBIA_WEIPU_CHARGER
-	struct delayed_work	 neo_charger_detect;
-#endif
-
 #ifdef CONFIG_ZTEMT_CHARGER
 	bool                 ztemt_chg_done;
 	struct delayed_work	 charger_monitor_work;
@@ -322,7 +309,6 @@ struct smbchg_chip {
 	int                  batt_warm_dec2;
 	int                  batt_warm_secd;
 #endif
-
 };
 
 enum qpnp_schg {
@@ -1151,34 +1137,6 @@ static int set_property_on_fg(struct smbchg_chip *chip,
 	return rc;
 }
 
-#ifdef CONFIG_EXTERNAL_FUEL_GAUGE
-static int get_property_from_external_fg(struct smbchg_chip *chip,
-		enum power_supply_property prop, int *val)
-{
-	int rc;
-	union power_supply_propval ret = {0, };
-
-	if (!chip->fg_psy && chip->fg_psy_name)
-		chip->fg_psy =
-			power_supply_get_by_name((char *)chip->fg_psy_name);
-	if (!chip->fg_psy) {
-		pr_smb(PR_STATUS, "no fg psy found\n");
-		return -EINVAL;
-	}
-
-	rc = chip->fg_psy->get_property(chip->fg_psy, prop, &ret);
-	if (rc) {
-		pr_smb(PR_STATUS,
-			"fg psy doesn't support reading prop %d rc = %d\n",
-			prop, rc);
-		return rc;
-	}
-
-	*val = ret.intval;
-	return rc;
-}
-#endif
-
 static int get_property_from_fg(struct smbchg_chip *chip,
 		enum power_supply_property prop, int *val)
 {
@@ -1212,11 +1170,8 @@ static int get_prop_batt_capacity(struct smbchg_chip *chip)
 
 	if (chip->fake_battery_soc >= 0)
 		return chip->fake_battery_soc;
-#ifdef CONFIG_EXTERNAL_FUEL_GAUGE
-	rc = get_property_from_external_fg(chip, POWER_SUPPLY_PROP_CAPACITY, &capacity);
-#else
+	
 	rc = get_property_from_fg(chip, POWER_SUPPLY_PROP_CAPACITY, &capacity);
-#endif
 	if (rc) {
 		pr_smb(PR_STATUS, "Couldn't get capacity rc = %d\n", rc);
 		capacity = DEFAULT_BATT_CAPACITY;
@@ -1269,11 +1224,8 @@ static int get_prop_batt_temp(struct smbchg_chip *chip)
 static int get_prop_batt_current_now(struct smbchg_chip *chip)
 {
 	int ua, rc;
-#ifdef CONFIG_EXTERNAL_FUEL_GAUGE
-	rc = get_property_from_external_fg(chip, POWER_SUPPLY_PROP_CURRENT_NOW, &ua);
-#else
+	
 	rc = get_property_from_fg(chip, POWER_SUPPLY_PROP_CURRENT_NOW, &ua);
-#endif
 	if (rc) {
 		pr_smb(PR_STATUS, "Couldn't get current rc = %d\n", rc);
 		ua = DEFAULT_BATT_CURRENT_NOW;
@@ -1762,10 +1714,6 @@ static void smbchg_usb_update_online_work(struct work_struct *work)
 	int online;
 
 	online = user_enabled && chip->usb_present && !chip->very_weak_charger;
-	#ifdef CONFIG_NUBIA_WEIPU_CHARGER
-	if(is_wp_chg_present())
-        online = 1;
-	#endif
 
 	mutex_lock(&chip->usb_set_online_lock);
 	if (chip->usb_online != online) {
@@ -1923,16 +1871,6 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 					pr_err("Couldn't set ICL override rc = %d\n",
 							rc);
 			} else {
-#ifdef CONFIG_NUBIA_WEIPU_CHARGER
-				if(current_ma == CURRENT_900_MA){
-					pr_err("Try to detect NEO charger.\n");
-					smbchg_stay_awake(chip, PM_DETECT_NEOCHARGER);
-					set_usb_psy_dp_dm(chip, POWER_SUPPLY_DP_DM_DPR_DMR);
-					set_usb_psy_dp_dm(chip, POWER_SUPPLY_DP_DM_DPF_DMF);
-					schedule_delayed_work(&chip->neo_charger_detect,
-								msecs_to_jiffies(2500));
-				}
-#endif
 #ifdef CONFIG_ZTEMT_CHARGER
 				pr_err("BATT:CHG NonStandard Type USB current_ma= %d.\n", current_ma);
 #else
@@ -2517,13 +2455,14 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 
 	pmi_icl_ma = total_current_ma * smbchg_main_chg_icl_percent / 100;
 	pmi_icl_ma = max(chip->parallel.min_main_icl_ma, pmi_icl_ma);
-	new_parallel_cl_ma = total_current_ma - pmi_icl_ma;
-
+#ifdef CONFIG_ZTEMT_CHARGER
 	new_parallel_cl_ma = total_current_ma
 			* (100 - smbchg_main_chg_icl_percent) / 100;
-#ifdef CONFIG_ZTEMT_CHARGER
-    ztechg_info("usb requested target current (%d)--distribution smb usb current %d ^^^^target_icl_ma %d \n",
+
+	ztechg_info("usb requested target current (%d)--distribution smb usb current %d ^^^^target_icl_ma %d \n",
             total_current_ma,new_parallel_cl_ma,target_icl_ma);
+#else
+	new_parallel_cl_ma = total_current_ma - pmi_icl_ma;
 #endif
 	taper_irq_en(chip, true);
 	power_supply_set_present(parallel_psy, true);
@@ -2538,19 +2477,19 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 #ifdef CONFIG_ZTEMT_CHARGER
 	ztechg_info("Requested ICL = %d from parallel, got %d\n",
 		new_parallel_cl_ma, set_parallel_cl_ma);
-    new_pmi_cl_ma = max(0,  total_current_ma - set_parallel_cl_ma);
-    ztechg_info( "New Total USB current = %d[%d, %d]\n",
-    total_current_ma, new_pmi_cl_ma,
-    set_parallel_cl_ma);
-    pr_err("BATT:CHG smbchg_parallel_usb_enable New Total USB current = %d[%d, %d]\n",
-          total_current_ma, new_pmi_cl_ma, set_parallel_cl_ma);
+	new_pmi_cl_ma = max(0,  total_current_ma - set_parallel_cl_ma);
+	ztechg_info( "New Total USB current = %d[%d, %d]\n",
+	total_current_ma, new_pmi_cl_ma,
+	set_parallel_cl_ma);
+	pr_err("BATT:CHG smbchg_parallel_usb_enable New Total USB current = %d[%d, %d]\n",
+		total_current_ma, new_pmi_cl_ma, set_parallel_cl_ma);
 #else
 	pr_smb(PR_MISC, "Requested ICL = %d from parallel, got %d\n",
 		new_parallel_cl_ma, set_parallel_cl_ma);
-    new_pmi_cl_ma = max(0, target_icl_ma - set_parallel_cl_ma);
-    pr_smb(PR_STATUS, "New Total USB current = %d[%d, %d]\n",
-    total_current_ma, new_pmi_cl_ma,
-    set_parallel_cl_ma);
+	new_pmi_cl_ma = max(0, target_icl_ma - set_parallel_cl_ma);
+	pr_smb(PR_STATUS, "New Total USB current = %d[%d, %d]\n",
+		total_current_ma, new_pmi_cl_ma,
+		set_parallel_cl_ma);
 #endif
 
 	smbchg_set_usb_current_max(chip, new_pmi_cl_ma);
@@ -4120,10 +4059,8 @@ static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
 		return 0;
 	}
 
-#if defined(CONFIG_NUBIA_WEIPU_CHARGER)
-    profile_node = of_batterydata_get_best_profile(batt_node, "bms", "qrd_msm8937_sku1_2800mah");
-#elif defined(CONFIG_ZTEMT_CHARGER)
-  profile_node = of_batterydata_get_best_profile(batt_node, "bms", "ztemt_lg_3000mah");
+#if defined(CONFIG_ZTEMT_CHARGER)
+	profile_node = of_batterydata_get_best_profile(batt_node, "bms", "ztemt_lg_3000mah");
 #else
 	profile_node = of_batterydata_get_best_profile(batt_node, "bms", NULL);
 #endif
@@ -4137,9 +4074,6 @@ static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
 	/* change vfloat */
 	rc = of_property_read_u32(profile_node, "qcom,max-voltage-uv",
 						&max_voltage_uv);
-	#if defined(CONFIG_NUBIA_WEIPU_CHARGER)
-    max_voltage_uv = chip->config_vfloat_mv;
-	#endif
 	if (rc) {
 		pr_warn("couldn't find battery max voltage rc=%d\n", rc);
 		ret = rc;
@@ -5119,12 +5053,6 @@ static void smbchg_hvdcp_det_work(struct work_struct *work)
 			power_supply_changed(&chip->batt_psy);
 		smbchg_aicl_deglitch_wa_check(chip);
 	}
-	#ifdef CONFIG_NUBIA_WEIPU_CHARGER
-	else{
-		pr_err("it is not hvdcp, start check weipu charger\n");
-		wp_charger_insert_check();
-	}
-	#endif
 	smbchg_relax(chip, PM_DETECT_HVDCP);
 }
 
@@ -5233,11 +5161,6 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	int rc;
 
 	pr_smb(PR_STATUS, "triggered\n");
-	#ifdef CONFIG_NUBIA_WEIPU_CHARGER
-	pr_err("usb is removed\n");
-	cancel_delayed_work(&chip->neo_charger_detect);
-	wp_charger_remove_check();
-	#endif
 	#ifdef CONFIG_ZTEMT_CHARGER
 	if(chip->batt_warm){
 		pr_err("usb removal, go out warm status\n");
@@ -5254,10 +5177,6 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	/* cancel/wait for hvdcp pending work if any */
 	cancel_delayed_work_sync(&chip->hvdcp_det_work);
 	smbchg_relax(chip, PM_DETECT_HVDCP);
-	#ifdef CONFIG_NUBIA_WEIPU_CHARGER
-	if( !is_wp_chg_present() )
-		smbchg_change_usb_supply_type(chip, POWER_SUPPLY_TYPE_UNKNOWN);
-	#else
 	smbchg_change_usb_supply_type(chip, POWER_SUPPLY_TYPE_UNKNOWN);
 
 	if (chip->parallel.use_parallel_aicl) {
@@ -5265,28 +5184,16 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 		pr_smb(PR_MISC, "complete hvdcp_det_done\n");
 	}
 
-	#endif
 	if (!chip->skip_usb_notification) {
 		pr_smb(PR_MISC, "setting usb psy present = %d\n",
 				chip->usb_present);
-		#ifdef CONFIG_NUBIA_WEIPU_CHARGER
-		if( !is_wp_chg_present() )
-			power_supply_set_present(chip->usb_psy, chip->usb_present);
-		#else
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
-		#endif
 	}
 	set_usb_psy_dp_dm(chip, POWER_SUPPLY_DP_DM_DPR_DMR);
 	schedule_work(&chip->usb_set_online_work);
 	pr_smb(PR_MISC, "setting usb psy health UNKNOWN\n");
-	#ifdef CONFIG_NUBIA_WEIPU_CHARGER
-	if( !is_wp_chg_present() )
-	    rc = power_supply_set_health_state(chip->usb_psy,
-			POWER_SUPPLY_HEALTH_UNKNOWN);
-	#else
 	rc = power_supply_set_health_state(chip->usb_psy,
 			POWER_SUPPLY_HEALTH_UNKNOWN);
-	#endif
 	if (rc < 0)
 		pr_smb(PR_STATUS,
 			"usb psy does not allow updating prop %d rc = %d\n",
@@ -6667,17 +6574,10 @@ static int smbchg_battery_get_property(struct power_supply *psy,
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_STATUS:
-#ifdef CONFIG_NUBIA_WEIPU_CHARGER
-		if(weipu_is_charging_status() || is_wp_fake_chging())
-			val->intval = POWER_SUPPLY_STATUS_CHARGING;
-		else
-			val->intval = get_prop_batt_status(chip);
-#else
 		val->intval = get_prop_batt_status(chip);
 #ifdef CONFIG_ZTEMT_CHARGER
 	if((val->intval==POWER_SUPPLY_STATUS_FULL)&&(chip->batt_warm_secd==1)&&(get_prop_batt_capacity(chip) < 98))
 		val->intval = POWER_SUPPLY_STATUS_CHARGING;
-#endif
 #endif
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
@@ -8392,12 +8292,6 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 	if (rc)
 		chip->bms_psy_name = NULL;
 
-#ifdef CONFIG_EXTERNAL_FUEL_GAUGE
-	/* read external fg power supply name */
-	rc = of_property_read_string(node, "qcom,exteral-fg-name",
-						&chip->fg_psy_name);
-#endif
-
 	/* read the battery power supply name */
 	rc = of_property_read_string(node, "qcom,battery-psy-name",
 						&chip->battery_psy_name);
@@ -9066,11 +8960,6 @@ void dump_chg_status_reg(void)
 		printk("%s[%x 0x%x] ", dump_chg_reg[i].name, dump_chg_reg[i].reg, reg);
     }
 
-#ifdef CONFIG_NUBIA_WEIPU_CHARGER
-	printk("wp=%d ", weipu_is_charging_status());
-	printk("pt:%d ", paral_st);
-#endif
-
 	printk("wm:%d", gchip->batt_warm_using);
 	printk("\n");
 }
@@ -9121,31 +9010,12 @@ static int nubia_reset_warm_chg_status(struct smbchg_chip *chip)
 	return rc;
 }
 
-#ifdef CONFIG_NUBIA_WEIPU_CHARGER
-static void neo_charger_detect_work(struct work_struct *work)
-{
-	struct smbchg_chip *chip = container_of(work, struct smbchg_chip, neo_charger_detect.work);
-
-	pr_err("neo status =%d\n", weipu_is_charging_status());
-
-	if(!weipu_is_charging_status()) {
-		wp_charger_insert_check();
-	}
-	smbchg_relax(chip, PM_DETECT_NEOCHARGER);
-	return;
-}
-#endif
-
 static void charger_monitor_worker(struct work_struct *work)
 {
 	struct smbchg_chip *chip = container_of(work, struct smbchg_chip, charger_monitor_work.work);
 	int batt_temp;
 
 	pr_err("usb_present=%d warm_dec=%d warm_using=%d\n", chip->usb_present,chip->batt_warm_using_dec,chip->batt_warm_using);
-
-#ifdef CONFIG_NUBIA_WEIPU_CHARGER
-	notify_lcd_on(chip->lcd_power_on);
-#endif
 
 	if( chip->lcd_power_on == 0 ){
 		nubia_reset_warm_chg_status(chip);
@@ -9178,11 +9048,6 @@ static int nubia_chg_handle_lcd_st(struct smbchg_chip *chip, int lcd_on)
 	pr_err("lcd_on=%d, batt_warm_using=%d\n",lcd_on, chip->batt_warm_using);
 
 	chip->lcd_power_on = lcd_on;
-
-#ifdef CONFIG_NUBIA_WEIPU_CHARGER
-	if(lcd_on == 0)
-		notify_lcd_on(lcd_on);
-#endif
 
     if( chip->lcd_power_on )
 		schedule_delayed_work(&chip->charger_monitor_work,
@@ -9488,10 +9353,6 @@ static int smbchg_probe(struct spmi_device *spmi)
 			smbchg_parallel_usb_en_work);
 	INIT_DELAYED_WORK(&chip->vfloat_adjust_work, smbchg_vfloat_adjust_work);
 	INIT_DELAYED_WORK(&chip->hvdcp_det_work, smbchg_hvdcp_det_work);
-
-#ifdef CONFIG_NUBIA_WEIPU_CHARGER
-	INIT_DELAYED_WORK(&chip->neo_charger_detect, neo_charger_detect_work);
-#endif
 
 #ifdef CONFIG_ZTEMT_CHARGER
 	INIT_DELAYED_WORK(&chip->charger_monitor_work, charger_monitor_worker);
