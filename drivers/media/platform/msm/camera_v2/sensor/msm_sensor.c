@@ -23,38 +23,6 @@
 
 static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl;
 static struct msm_camera_i2c_fn_t msm_sensor_secure_func_tbl;
-/*ZTEMT: fengxun add for AL3200--------Start*/
-
-
-
-#ifdef CONFIG_AL3200
-#define USE_AL3200
-#endif
-#ifdef USE_AL3200
-#include "../al3200/include/isp_camera_cmd.h"
-
-//extern uint32_t ISPCtrlIFMaster_ExecuteCMD(u16 opcode, u8 *param);
-extern uint32_t ispctrl_if_mast_execute_cmd(u16 opcode, u8 *param);
-extern uint32_t mini_isp_drv_setting(u16 mini_isp_mode);
-/////if read read_reg_e_mode please open this func
-//extern uint32_t mini_isp_drv_read_reg_e_mode(void);
-extern uint32_t mini_isp_drv_read_reg_e_mode_for_bypass_use(void);
-/////if read read_reg_e_mode please open this func end
-extern void mini_isp_poweron(void);
-extern void mini_isp_poweroff(void);
-extern int g_isMiniISP_Probled;
-//extern void mini_isp_reset(void);
-
-//extern int g_isMiniISP_bypass ;
-//int g_isMiniISP_read = 0;
-//int g_isMiniISP_Resolution = 0;
-//static struct isp_cmd_tx_info stream_on_off[SENSOR_TYPEMAX];
-int imx258_main_state = MSM_SENSOR_POWER_DOWN;
-int imx258_aux_state = MSM_SENSOR_POWER_DOWN;
-int front_sensor_s5k3p3 = MSM_SENSOR_POWER_DOWN;
-int retry = 3;
-#endif
-/*ZTEMT: fengxun add for AL3200--------End*/
 
 static void msm_sensor_adjust_mclk(struct msm_camera_power_ctrl_t *ctrl)
 {
@@ -186,15 +154,6 @@ int msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	const char *sensor_name;
 	uint32_t retry = 0;
 
-/*ZTEMT: fengxun add for AL3200--------Start*/
-#ifdef USE_AL3200
-	pr_err("%s:%d  power_info g_isMiniISP_Probled = %d\n",__func__, __LINE__, g_isMiniISP_Probled);
-	//if(g_isMiniISP_Probled == 1){
-	// mini_isp_poweron();
-	 // mini_isp_reset();
-	//}
-#endif
-/*ZTEMT: fengxun add for AL3200--------End*/
 	if (!s_ctrl) {
 		pr_err("%s:%d failed: %pK\n",
 			__func__, __LINE__, s_ctrl);
@@ -524,176 +483,6 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
             break;
         }
         //ZTEMT: guxiaodong add for sensor temp ----end
-
-/*ZTEMT: fengxun add for AL3200--------Start*/
-#ifdef USE_AL3200
-       case CFG_MISP_LOAD_FIRMWARE:
-		////open boot and FW file  then write boot code and FW code
-		if(g_isMiniISP_Probled == 0)
-			break;
-		while(retry--){
-			mini_isp_poweron();
-			if(0 != mini_isp_drv_setting(MINI_ISP_MODE_GET_CHIP_ID)){
-				printk("get id failed \n");
-				mini_isp_poweroff();
-			}else{
-				break;
-			}
-		}
-		retry = 3;
-		if(0 != mini_isp_drv_setting(MINI_ISP_MODE_E2A)){
-			printk("change MINI_ISP_MODE_E2A failed failed \n");
-		}
-		//printk("call misp_load_fw \n");
-		if(0 != mini_isp_drv_setting(MINI_ISP_MODE_NORMAL)){
-			printk("misp_load_fw failed \n");
-		}
-		break ;
-	case CFG_WRITE_SPI_ARRAY:
-		{
-#if 0
-			uint8_t *param = NULL;
-			unsigned int  para_size;
-			struct msm_camera_spi_reg_setting32 spi_reg;
-
-			if(g_isMiniISP_Probled == 0)
-				break;
-			pr_err("[miniisp] msm_sensor_config CFG_WRITE_SPI_ARRAY enter \n");
-
-			if(copy_from_user(&spi_reg,(void *)compat_ptr(cdata->cfg.setting),
-				sizeof(struct msm_camera_spi_reg_setting32))){
-				rc = -EFAULT;
-				pr_err("%s:%d copy_from_user \n",__func__,__LINE__);
-
-				break;
-			}
-
-			param = kzalloc(spi_reg.size *sizeof(uint8_t), GFP_KERNEL);
-
-			if(copy_from_user(param, (void *)(unsigned long)spi_reg.param, spi_reg.size *sizeof(uint8_t))){
-				kfree(param);
-				rc = -EFAULT;
-				pr_err("%s:%d copy_from_user failed \n",__func__,__LINE__);
-
-				break ;
-				}
-
-			para_size = sizeof(struct isp_cmd_tx_info)*SENSOR_TYPEMAX;
-			/* copy to Basic Parameter's structure addr*/
-			memcpy(stream_on_off, param, para_size);
-			printk("[miniisp] msm_sensor_config bypass = %d %d %d param! \n",
-				stream_on_off[0].on,
-				stream_on_off[1].on,
-				stream_on_off[2].on);
-			if(stream_on_off[0].on ||stream_on_off[1].on ||stream_on_off[2].on)
-			{
-			u16 mini_isp_mod = 0x1000;
-			switch(g_isMiniISP_Resolution){
-				case 0:
-					mini_isp_mod = 0x1000;
-					break;
-				case 1:
-					mini_isp_mod = 0x1001;
-					break;
-				default:
-					mini_isp_mod = 0x1000;
-					break;
-			}
-
-			////set bypass mode
-			//if(0 != mini_isp_drv_setting(0x1000)){
-			if(0 != mini_isp_drv_setting(mini_isp_mod)){
-				printk("duyuerong misp_load_fw failed \n");
-			}
-			udelay(700);
-			}else{
-				g_isMiniISP_bypass = 0;
-			}
-			////execute minisp CMD
-			rc = ispctrl_if_mast_execute_cmd(spi_reg.opcode, param);
-
-#if 0
-			if(spi_reg.opcode==ISPCMD_CAMERA_PREVIEWSTREAMONOFF)
-				//mini_isp_drv_read_reg_e_mode();
-				mini_isp_drv_read_reg_e_mode_for_bypass_use();
-#endif
-			//printk("[miniisp] msm_sensor_config CFG_WRITE_SPI_ARRAY opcode = %x param return %d \n",
-			//	spi_reg.opcode,rc);
-
-			kfree(param);
-
-			break ;
-#endif
-			uint8_t *param = NULL;
-			struct msm_camera_spi_reg_setting32 spi_reg;
-			if(g_isMiniISP_Probled == 0)
-				break;
-			//pr_err("[miniisp] msm_sensor_config CFG_WRITE_SPI_ARRAY enter \n");
-
-			if(copy_from_user(&spi_reg,(void *)compat_ptr(cdata->cfg.setting),
-				sizeof(struct msm_camera_spi_reg_setting32))){
-				rc = -EFAULT;
-				pr_err("%s:%d copy_from_user \n",__func__,__LINE__);
-				break;
-			}
-
-			param = kzalloc(spi_reg.size *sizeof(uint8_t), GFP_KERNEL);
-
-			if(copy_from_user(param, (void *)(unsigned long)spi_reg.param, spi_reg.size *sizeof(uint8_t))){
-				kfree(param);
-				rc = -EFAULT;
-				pr_err("%s:%d copy_from_user failed \n",__func__,__LINE__);
-				break ;
-			}
-
-			/*spi_reg.param = param;*/
-			rc = ispctrl_if_mast_execute_cmd(spi_reg.opcode, param);
-			kfree(param);
-
-			break ;
-		}
-#if 0
-	case CFG_SET_RESOLUTION:
-		{
-			uint8_t *param = NULL;
-			//unsigned int  para_size;
-			struct msm_camera_spi_reg_setting32 spi_reg;
-
-			if(g_isMiniISP_Probled == 0)
-				break;
-			pr_err("[miniisp] msm_sensor_config CFG_WRITE_SPI_ARRAY enter \n");
-
-			if(copy_from_user(&spi_reg,(void *)compat_ptr(cdata->cfg.setting),
-				sizeof(struct msm_camera_spi_reg_setting32))){
-				rc = -EFAULT;
-				pr_err("%s:%d copy_from_user \n",__func__,__LINE__);
-
-				break;
-			}
-
-			param = kzalloc(spi_reg.size *sizeof(uint8_t), GFP_KERNEL);
-
-			if(copy_from_user(param, (void *)(unsigned long)spi_reg.param, spi_reg.size *sizeof(uint8_t))){
-				kfree(param);
-				rc = -EFAULT;
-				pr_err("%s:%d copy_from_user failed \n",__func__,__LINE__);
-
-				break ;
-				}
-
-			//uint8_t buff[64];
-                    //memset(buff, 0, 64);
-			/* copy to Basic Parameter's structure addr*/
-			//memcpy(buff, param, para_size);
-			g_isMiniISP_Resolution = param[0];
-                    pr_err("%s:%d copy_from_user jidewei debug res =%d \n",__func__,__LINE__,param[0]);
-			kfree(param);
-
-			break ;
-		}
-#endif
-#endif
-/*ZTEMT: fengxun add for AL3200--------End*/
 
 	case CFG_GET_SENSOR_INFO:
 		memcpy(cdata->cfg.sensor_info.sensor_name,
@@ -1083,20 +872,6 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 				break;
 			}
 			s_ctrl->sensor_state = MSM_SENSOR_POWER_UP;
-#ifdef CONFIG_AL3200
-			if(strcmp(s_ctrl->sensordata->sensor_name,"imx258_main")==0){
-				pr_err("%s:%d imx258_main_state = %d\n", __func__,__LINE__, s_ctrl->sensor_state);
-				imx258_main_state = s_ctrl->sensor_state;
-			}
-			if(strcmp(s_ctrl->sensordata->sensor_name,"imx258_aux")==0){
-				pr_err("%s:%d imx258_aux_state = %d\n", __func__,__LINE__, s_ctrl->sensor_state);
-				imx258_aux_state = s_ctrl->sensor_state;
-			}
-                        if(strcmp(s_ctrl->sensordata->sensor_name,"s5k3p3")==0){
-				pr_err("%s:%d imx258_aux_state = %d\n", __func__,__LINE__, s_ctrl->sensor_state);
-				front_sensor_s5k3p3 = s_ctrl->sensor_state;
-			}
-#endif
 			CDBG("%s:%d sensor state %d\n", __func__, __LINE__,
 				s_ctrl->sensor_state);
 		} else {
@@ -1126,31 +901,6 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 				break;
 			}
 			s_ctrl->sensor_state = MSM_SENSOR_POWER_DOWN;
-#ifdef CONFIG_AL3200
-			if(strcmp(s_ctrl->sensordata->sensor_name,"imx258_main")==0){
-				pr_err("%s:%d imx258_main_state = %d\n", __func__,__LINE__, s_ctrl->sensor_state);
-				imx258_main_state = s_ctrl->sensor_state;
-                            if((imx258_main_state==MSM_SENSOR_POWER_DOWN)&&(imx258_aux_state==MSM_SENSOR_POWER_DOWN)){
-                                    if(g_isMiniISP_Probled == 1){
-                                            mini_isp_poweroff();
-                                    }
-                            }
-                    }
-
-			if(strcmp(s_ctrl->sensordata->sensor_name,"imx258_aux")==0){
-				pr_err("%s:%d imx258_aux_state = %d\n", __func__,__LINE__, s_ctrl->sensor_state);
-				imx258_aux_state = s_ctrl->sensor_state;
-                            if((imx258_main_state==MSM_SENSOR_POWER_DOWN)&&(imx258_aux_state==MSM_SENSOR_POWER_DOWN)){
-                                    if(g_isMiniISP_Probled == 1){
-                                            mini_isp_poweroff();
-                                    }
-                            }
-			}
-                        if(strcmp(s_ctrl->sensordata->sensor_name,"s5k3p3")==0){
-                                pr_err("%s:%d front_sensor_s5k3p3 = %d\n", __func__,__LINE__, s_ctrl->sensor_state);
-				front_sensor_s5k3p3 = s_ctrl->sensor_state;
-                        }
-#endif
 			CDBG("%s:%d sensor state %d\n", __func__, __LINE__,
 				s_ctrl->sensor_state);
 		} else {
@@ -1262,67 +1012,6 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 	CDBG("%s:%d %s cfgtype = %d\n", __func__, __LINE__,
 		s_ctrl->sensordata->sensor_name, cdata->cfgtype);
 	switch (cdata->cfgtype) {
-
-/*ZTEMT: fengxun add for AL3200--------Start*/
-#ifdef USE_AL3200
-	case CFG_MISP_LOAD_FIRMWARE:
-		////open boot and FW file  then write boot code and FW code
-		if(g_isMiniISP_Probled == 0)
-			break;
-		mini_isp_poweron();
-		if(0 != mini_isp_drv_setting(MINI_ISP_MODE_GET_CHIP_ID)){
-			printk("get id failed \n");
-		}
-		if(0 != mini_isp_drv_setting(MINI_ISP_MODE_E2A)){
-			printk("change MINI_ISP_MODE_E2A failed failed \n");
-		}
-		//printk("call misp_load_fw \n");
-		if(0 != mini_isp_drv_setting(MINI_ISP_MODE_NORMAL)){
-			printk("misp_load_fw failed \n");
-		}
-		break ;
-	case CFG_WRITE_SPI_ARRAY:
-		{
-			uint8_t *param = NULL;
-			struct msm_camera_spi_reg_setting spi_reg;
-
-			pr_err("[miniisp] msm_sensor_config CFG_WRITE_SPI_ARRAY enter \n");
-
-			if(s_ctrl->sensor_state != MSM_SENSOR_POWER_UP){
-				rc = -EFAULT;
-				pr_err("%s:%d copy_from_user \n",__func__,__LINE__);
-				break;
-			}
-
-			if(copy_from_user(&spi_reg,(void *)cdata->cfg.setting,
-				sizeof(struct msm_camera_spi_reg_setting))){
-				rc = -EFAULT;
-				pr_err("%s:%d copy_from_user \n",__func__,__LINE__);
-				break;
-			}
-
-			param = kzalloc(spi_reg.size *sizeof(uint8_t), GFP_KERNEL);
-
-			if(copy_from_user(param, (void *)(unsigned long)spi_reg.param, spi_reg.size *sizeof(uint8_t))){
-				kfree(param);
-				rc = -EFAULT;
-				pr_err("%s:%d copy_from_user failed \n",__func__,__LINE__);
-				break ;
-				}
-
-			spi_reg.param = param;
-			rc = ispctrl_if_mast_execute_cmd(spi_reg.opcode, param);
-
-			pr_err("%s:%d ****************mini_isp_drv_read_reg_e_mode************setp 2 \n",__func__,__LINE__);
-			//if(spi_reg.opcode==ISPCMD_CAMERA_PREVIEWSTREAMONOFF)
-			//	mini_isp_drv_read_reg_e_mode();
-			kfree(param);
-
-			break ;
-		}
-#endif
-/*ZTEMT: fengxun add for AL3200--------End*/
-
 	case CFG_GET_SENSOR_INFO:
 		memcpy(cdata->cfg.sensor_info.sensor_name,
 			s_ctrl->sensordata->sensor_name,
@@ -1669,20 +1358,6 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 				break;
 			}
 			s_ctrl->sensor_state = MSM_SENSOR_POWER_UP;
-#ifdef CONFIG_AL3200
-			if(strcmp(s_ctrl->sensordata->sensor_name,"imx258_main")==0){
-				pr_err("%s:%d imx258_main_state = %d\n", __func__,__LINE__, s_ctrl->sensor_state);
-				imx258_main_state = s_ctrl->sensor_state;
-			}
-			if(strcmp(s_ctrl->sensordata->sensor_name,"imx258_aux")==0){
-				pr_err("%s:%d imx258_aux_state = %d\n", __func__,__LINE__, s_ctrl->sensor_state);
-				imx258_aux_state = s_ctrl->sensor_state;
-			}
-                        if(strcmp(s_ctrl->sensordata->sensor_name,"s5k3p3")==0){
-				pr_err("%s:%d imx258_aux_state = %d\n", __func__,__LINE__, s_ctrl->sensor_state);
-				front_sensor_s5k3p3 = s_ctrl->sensor_state;
-			}
-#endif
 			CDBG("%s:%d sensor state %d\n", __func__, __LINE__,
 				s_ctrl->sensor_state);
 		} else {
@@ -1713,30 +1388,6 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 				break;
 			}
 			s_ctrl->sensor_state = MSM_SENSOR_POWER_DOWN;
-#ifdef CONFIG_AL3200
-			if(strcmp(s_ctrl->sensordata->sensor_name,"imx258_main")==0){
-				pr_err("%s:%d imx258_main_state = %d\n", __func__,__LINE__, s_ctrl->sensor_state);
-				imx258_main_state = s_ctrl->sensor_state;
-                            if((imx258_main_state==MSM_SENSOR_POWER_DOWN)&&(imx258_aux_state==MSM_SENSOR_POWER_DOWN)){
-                                    if(g_isMiniISP_Probled == 1){
-                                            mini_isp_poweroff();
-                                    }
-                            }
-                    }
-			if(strcmp(s_ctrl->sensordata->sensor_name,"imx258_aux")==0){
-				pr_err("%s:%d imx258_aux_state = %d\n", __func__,__LINE__, s_ctrl->sensor_state);
-				imx258_aux_state = s_ctrl->sensor_state;
-                            if((imx258_main_state==MSM_SENSOR_POWER_DOWN)&&(imx258_aux_state==MSM_SENSOR_POWER_DOWN)){
-                                    if(g_isMiniISP_Probled == 1){
-                                            mini_isp_poweroff();
-                                    }
-                            }
-			}
-                        if(strcmp(s_ctrl->sensordata->sensor_name,"s5k3p3")==0){
-                                pr_err("%s:%d front_sensor_s5k3p3 = %d\n", __func__,__LINE__, s_ctrl->sensor_state);
-				front_sensor_s5k3p3 = s_ctrl->sensor_state;
-                        }
-#endif
 			CDBG("%s:%d sensor state %d\n", __func__, __LINE__,
 				s_ctrl->sensor_state);
 		} else {

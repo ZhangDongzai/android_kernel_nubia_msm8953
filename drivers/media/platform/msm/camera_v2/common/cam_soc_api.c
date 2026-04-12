@@ -351,12 +351,6 @@ int msm_camera_clk_enable(struct device *dev,
 	int rc = 0;
 	long clk_rate;
 
-      /*ZTEMT: fengxun add for set PMIC GPIO1--------Start*/
-      #ifdef CONFIG_AL3200
-      struct clk* clk_c;
-      #endif
-      /*ZTEMT: fengxun add for set PMIC GPIO1--------End*/
-
       if (enable) {
           for (i = 0; i < num_clk; i++) {
               CDBG("enable clk_name=%s  clk_rate=%ld\n", clk_info[i].clk_name,clk_info[i].clk_rate);
