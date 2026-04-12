@@ -2612,23 +2612,6 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.ignore_pmdown_time = 1, /* dai link has playback support */
 		.ignore_suspend = 1,
 	},
-#ifdef CONFIG_SND_SOC_TAS2555_GENERIC
-	{
-		.name = LPASS_BE_QUIN_MI2S_RX,
-		.stream_name = "Quinary MI2S Playback",
-		.cpu_dai_name = "msm-dai-q6-mi2s.5",
-		.platform_name = "msm-pcm-routing",
-		.codec_dai_name = "tas2555 ASI1",
-		.codec_name = "tas2555.5-004c",
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_RX,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
-		.ops = &msm8952_quin_mi2s_be_ops,
-		.ignore_pmdown_time = 1,
-		.ignore_suspend = 1,
-	},
-#endif
 	{
 		.name = LPASS_BE_QUAT_MI2S_TX,
 		.stream_name = "Quaternary MI2S Capture",
@@ -2829,7 +2812,6 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.ignore_suspend = 1,
 	},
 };
-#ifndef CONFIG_SND_SOC_TAS2555_GENERIC
 static struct snd_soc_dai_link msm8952_hdmi_dba_dai_link[] = {
 	{
 		.name = LPASS_BE_QUIN_MI2S_RX,
@@ -2865,7 +2847,6 @@ static struct snd_soc_dai_link msm8952_quin_dai_link[] = {
 		.ignore_suspend = 1,
 	},
 };
-#endif
 
 static struct snd_soc_dai_link msm8952_split_a2dp_dai_link[] = {
 	{
@@ -2884,16 +2865,10 @@ static struct snd_soc_dai_link msm8952_split_a2dp_dai_link[] = {
 	},
 };
 
-#ifdef CONFIG_SND_SOC_TAS2555_GENERIC
-static struct snd_soc_dai_link msm8952_dai_links[
-ARRAY_SIZE(msm8952_dai) +
-ARRAY_SIZE(msm8952_split_a2dp_dai_link)];
-#else
 static struct snd_soc_dai_link msm8952_dai_links[
 ARRAY_SIZE(msm8952_dai) +
 ARRAY_SIZE(msm8952_hdmi_dba_dai_link) +
 ARRAY_SIZE(msm8952_split_a2dp_dai_link)];
-#endif
 
 static int msm8952_wsa881x_init(struct snd_soc_component *component)
 {
@@ -3179,7 +3154,6 @@ static struct snd_soc_card *msm8952_populate_sndcard_dailinks(
 	len1 = ARRAY_SIZE(msm8952_dai);
 	memcpy(msm8952_dai_links, msm8952_dai, sizeof(msm8952_dai));
 	dailink = msm8952_dai_links;
-#ifndef CONFIG_SND_SOC_TAS2555_GENERIC
 	if (of_property_read_bool(dev->of_node,
 				"qcom,hdmi-dba-codec-rx")) {
 		dev_dbg(dev, "%s(): hdmi audio support present\n",
@@ -3194,7 +3168,6 @@ static struct snd_soc_card *msm8952_populate_sndcard_dailinks(
 				sizeof(msm8952_quin_dai_link));
 		len1 += ARRAY_SIZE(msm8952_quin_dai_link);
 	}
-#endif
 	if (of_property_read_bool(dev->of_node,
 				"qcom,split-a2dp")) {
 		dev_dbg(dev, "%s(): split a2dp support present\n",

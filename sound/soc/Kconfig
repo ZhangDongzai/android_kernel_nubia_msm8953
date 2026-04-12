@@ -69,12 +69,6 @@ config ZTEMT_AUDIO
        help
           AUDIO MACRO for NUBIA Z11s series
 
-config ZTEMT_AUDIO_ANALOG_MIC
-       bool "AUDIO MACRO for the project using analog mic "
-       default n
-       help
-          AUDIO MACRO for NUBIA Z11s series
-
 config ZTEMT_AUDIO_DIGITAL_MIC
        bool "AUDIO MACRO for the project using digital mic "
        default n
