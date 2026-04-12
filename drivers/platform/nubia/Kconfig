@@ -21,10 +21,4 @@ config MACH_NUBIA_NX549J
     help
       Support for Nubia z11 mini s variant
 
-config MACH_NUBIA_NX551J
-    bool "NUBIA_NX551J board"
-    select MACH_NUBIA_MSM8953
-    help
-      Support for Nubia M2 variant
-
 endmenu
