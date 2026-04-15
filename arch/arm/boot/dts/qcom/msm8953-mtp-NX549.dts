@@ -54,8 +54,6 @@
 };
 
 #include "NX549/head.dtsi"
-#include "nubia_common/head.dtsi"
-
 
 &soc {
         ramoops {

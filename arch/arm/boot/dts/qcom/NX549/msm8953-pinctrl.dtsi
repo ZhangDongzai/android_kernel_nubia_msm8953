@@ -13,14 +13,15 @@
 
 &soc {
 	tlmm: pinctrl@1000000 {
+		/delete-node/ wsa-vi;
+		/delete-node/ wsa_reset;
+		/delete-node/ wsa_clk;
+		/delete-node/ cam_sensor_ir_cut_default;
+		/delete-node/ cam_sensor_ir_cut_sleep;
 		/delete-node/ cam_sensor_rear_vdig;
-
 		/delete-node/ cam_sensor_rear_vdig_sleep;
-
 		/delete-node/ pmx_adv7533_int;
-
 		/delete-node/ pmx_rd_nfc_int;
-
 		/delete-node/ pmx_nfc_reset;
 
 	/*add by chengdongsheng for nfc brcm2079x*/
