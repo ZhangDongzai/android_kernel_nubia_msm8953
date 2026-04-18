@@ -12,36 +12,31 @@
  */
 
 
-#include <dt-bindings/clock/msm-clocks-8953.h>
-#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
-#include <dt-bindings/gpio/gpio.h>
-
 / {
-        firmware: firmware {
-                android {
-                        fstab {
-				vendor {
-					dev = "/dev/block/platform/soc/7824900.sdhci/by-name/oem";
-					fsmgr_flags = "wait";
-				};
-				system {
-					compatible = "android,system";
-					dev = "/dev/block/platform/soc/7824900.sdhci/by-name/system";
-					type = "ext4";
-			                mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait";
-					status = "ok";
-				};
-                        };
-                };
-        };
         reserved-memory {
                 other_ext_mem: other_ext_region@0 {
                         reg = <0x0 0x84a00000 0x0 0x1e00000>;
                 };
         };
+};
 
-
+&firmware {
+        android {
+                fstab {
+                        vendor {
+                                dev = "/dev/block/platform/soc/7824900.sdhci/by-name/oem";
+                                fsmgr_flags = "wait";
+                        };
+                        system {
+                                compatible = "android,system";
+                                dev = "/dev/block/platform/soc/7824900.sdhci/by-name/system";
+                                type = "ext4";
+                                mnt_flags = "ro,barrier=1,discard";
+                                fsmgr_flags = "wait";
+                                status = "ok";
+                        };
+                };
+        };
 };
 
 &soc {
@@ -126,5 +121,3 @@
 
         };
 };
-
-
