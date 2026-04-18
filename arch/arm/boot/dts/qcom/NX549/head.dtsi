@@ -2,7 +2,6 @@
 #include "msm8953-pinctrl.dtsi"
 #include "msm-audio.dtsi"
 #include "msm8953-audio.dtsi"
-#include "msm8953-audio-mtp.dtsi"
 #include "msm8953-camera.dtsi"
 #include "msm8953-camera-sensor-mtp-delete.dtsi"
 #include "msm8953-camera-sensor-mtp.dtsi"

@@ -13,6 +13,7 @@
 
 
 &int_codec {
+	status = "okay";
 	qcom,model = "msm8953-snd-card-mtp";
 
         qcom,cdc-ext-amp-gpios = <&tlmm 25 0>;
@@ -129,3 +130,10 @@
 	/delete-property/ qcom,cdc-us-euro-gpios;
 };
 
+&pm8953_diangu_dig {
+	status = "okay";
+};
+
+&pm8953_diangu_analog {
+	status = "okay";
+};
