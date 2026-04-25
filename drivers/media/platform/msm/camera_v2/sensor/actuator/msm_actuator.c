@@ -1732,10 +1732,12 @@ static long msm_actuator_subdev_do_ioctl(
 			parg = &actuator_data;
 			break;
 		}
+#ifndef CONFIG_MACH_NUBIA_NX549J
 		break;
 	case VIDIOC_MSM_ACTUATOR_CFG:
 		pr_err("%s: invalid cmd 0x%x received\n", __func__, cmd);
 		return -EINVAL;
+#endif
 	}
 
 	rc = msm_actuator_subdev_ioctl(sd, cmd, parg);
