@@ -486,14 +486,11 @@ static ssize_t outn_store(struct device *dev,
 	unsigned long parameter_one = simple_strtoul(buf, &after, 10);
 	led = container_of(led_cdev, struct aw2013_control_data, cdev);
 
-#ifdef CONFIG_ZTEMT_LIQUID_LED_OUTN_SWITCH
-#else
 	parameter_one = (parameter_one >> 4) & 0x0f;
 	if(parameter_one == 0x01)
 		parameter_one = 0x00;
 	else if(parameter_one == 0x00)
 		parameter_one = 0x01;
-#endif
 
 	led->outn =(int) parameter_one;
 	LED_DEBUG("ztemt_channel=%d \n",led->outn);
